@@ -1,0 +1,12 @@
+<div>
+    This is the content for test <span class="test-number">number</span>. It took <span class="result">?</span> to present.
+</div>
+<script type="text/javascript">
+$(document).ready(function() {
+    var request_id = {{request_id}};
+    $("span.test-number").text(request_id);
+    $.post(request_id, function(result) {
+        $("span.result").text(result);
+    });
+});
+</script>

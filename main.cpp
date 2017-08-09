@@ -14,8 +14,17 @@ static const char *s_http_port = "8000";
 static struct mg_serve_http_opts opts;
 static int count = 0;
 static std::strstream events;
-static std::string content_part_html;
+static std::string content_part_html, frame_container_html;
 static std::map<int,std::chrono::system_clock::time_point> started_time;
+
+std::string str_replace(std::string const &src, std::string const &find, std::string const &repl) {
+    auto buffer = src;
+    auto pos = buffer.find(find);
+    if (pos != std::string::npos) {
+        buffer.replace(pos, find.size(), repl);
+    }
+    return buffer;
+}
 
 static void ev_handler(struct mg_connection *c, int ev, void *p) {
   if (ev == MG_EV_HTTP_REQUEST) {
@@ -50,10 +59,14 @@ static void ev_handler(struct mg_connection *c, int ev, void *p) {
         mg_send(c, events.str(), events.pcount());
     }
     else if (0 == strncmp("/content-part.html", hm->uri.p, 18)) {
-        auto buffer = content_part_html;
-        auto pos = buffer.find("{{request_id}}");
-        buffer.replace(pos, 14, std::string(hm->query_string.p, hm->query_string.len));
-        mg_send_head(c, 200, buffer.size(), "Content-Type: text/plain");
+        auto buffer = str_replace(content_part_html, "{{request_id}}", std::string(hm->query_string.p, hm->query_string.len));
+        mg_send_head(c, 200, buffer.size(), "Content-Type: text/html");
+        mg_send(c, buffer.c_str(), buffer.size());
+    }
+    else if (0 == strncmp("/frame.html", hm->uri.p, 11)) {
+        auto buffer = str_replace(content_part_html, "{{request_id}}", std::string(hm->query_string.p, hm->query_string.len));
+        buffer = str_replace(frame_container_html, "{{content}}", buffer);
+        mg_send_head(c, 200, buffer.size(), "Content-Type: text/html");
         mg_send(c, buffer.c_str(), buffer.size());
     }
     else {
@@ -72,6 +85,10 @@ int main(void) {
 
     std::ifstream t("./web/content-part.html");
     content_part_html = std::string((std::istreambuf_iterator<char>(t)),
+                    std::istreambuf_iterator<char>());
+
+    std::ifstream u("./web/frame-container.html");
+    frame_container_html = std::string((std::istreambuf_iterator<char>(u)),
                     std::istreambuf_iterator<char>());
 
     memset(&opts, 0, sizeof(opts));  // Reset all options to defaults
